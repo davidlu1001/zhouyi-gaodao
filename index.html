@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>高岛易断 - 卦象呈现系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap');
+
+        body {
+            font-family: 'Noto Serif SC', serif;
+            background: linear-gradient(135deg, #f5f0e8 0%, #e8dcc8 100%);
+            min-height: 100vh;
+        }
+
+        .paper-texture {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 100 100'%3E%3Cg fill-rule='evenodd'%3E%3Cg fill='%23d4c4a8' fill-opacity='0.15'%3E%3Cpath opacity='.5' d='M96 95h4v1h-4v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4h-9v4h-1v-4H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15v-9H0v-1h15V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h9V0h1v15h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9h4v1h-4v9zm-1 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm9-10v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-10 0v-9h-9v9h9zm-9-10h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9zm10 0h9v-9h-9v9z'/%3E%3Cpath d='M6 5V0H5v5H0v1h5v94h1V6h94V5H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
+        .yao-yang {
+            height: 12px;
+            background: #2d2a24;
+            border-radius: 2px;
+        }
+
+        .yao-yin {
+            height: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .yao-yin-half {
+            width: 42%;
+            height: 100%;
+            background: #2d2a24;
+            border-radius: 2px;
+        }
+
+        .yao-moving .yao-yang,
+        .yao-moving .yao-yin-half {
+            background: #c41e3a;
+        }
+
+        .seal-stamp {
+            color: #c41e3a;
+            border: 2px solid #c41e3a;
+            padding: 4px 8px;
+            font-size: 14px;
+            transform: rotate(-5deg);
+        }
+
+        /* 分签按钮动画 */
+        .split-btn {
+            transition: all 0.15s ease;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+
+        .split-btn:active, .split-btn.pressing {
+            transform: scale(0.95);
+            box-shadow: inset 0 4px 8px rgba(0,0,0,0.3);
+        }
+
+        .split-btn.pressing {
+            background: linear-gradient(180deg, #7c2d12 0%, #9a3412 100%);
+        }
+
+        /* 呼吸动画 */
+        @keyframes breathe {
+            0%, 100% { opacity: 0.5; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); }
+        }
+
+        .breathing {
+            animation: breathe 2s ease-in-out infinite;
+        }
+
+        /* 签数跳动动画 */
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        .flickering {
+            animation: flicker 0.08s linear infinite;
+        }
+
+        /* 完成动画 */
+        @keyframes reveal {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .reveal {
+            animation: reveal 0.4s ease-out forwards;
+        }
+
+        /* 进度指示器 */
+        .step-indicator {
+            transition: all 0.3s ease;
+        }
+
+        .step-indicator.active {
+            transform: scale(1.1);
+        }
+
+        .step-indicator.completed {
+            background: linear-gradient(135deg, #15803d 0%, #16a34a 100%);
+        }
+    </style>
+</head>
+<body class="paper-texture">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useCallback, useRef, useEffect } = React;
+
+        // 64卦数据 (先天八卦数索引)
+        const GUA_DATA = {
+            "1": { "1": "乾为天", "2": "天泽履", "3": "天火同人", "4": "天雷无妄", "5": "天风姤", "6": "天水讼", "7": "天山遁", "8": "天地否" },
+            "2": { "1": "泽天夬", "2": "兑为泽", "3": "泽火革", "4": "泽雷随", "5": "泽风大过", "6": "泽水困", "7": "泽山咸", "8": "泽地萃" },
+            "3": { "1": "火天大有", "2": "火泽睽", "3": "离为火", "4": "火雷噬嗑", "5": "火风鼎", "6": "火水未济", "7": "火山旅", "8": "火地晋" },
+            "4": { "1": "雷天大壮", "2": "雷泽归妹", "3": "雷火丰", "4": "震为雷", "5": "雷风恒", "6": "雷水解", "7": "雷山小过", "8": "雷地豫" },
+            "5": { "1": "风天小畜", "2": "风泽中孚", "3": "风火家人", "4": "风雷益", "5": "巽为风", "6": "风水涣", "7": "风山渐", "8": "风地观" },
+            "6": { "1": "水天需", "2": "水泽节", "3": "水火既济", "4": "水雷屯", "5": "水风井", "6": "坎为水", "7": "水山蹇", "8": "水地比" },
+            "7": { "1": "山天大畜", "2": "山泽损", "3": "山火贲", "4": "山雷颐", "5": "山风蛊", "6": "山水蒙", "7": "艮为山", "8": "山地剥" },
+            "8": { "1": "地天泰", "2": "地泽临", "3": "地火明夷", "4": "地雷复", "5": "地风升", "6": "地水师", "7": "地山谦", "8": "坤为地" }
+        };
+
+        // 先天八卦对应的三爻 [初爻, 二爻, 三爻] (从下到上, 1=阳, 0=阴)
+        const TRIGRAM_LINES = {
+            1: [1, 1, 1], // 乾 ☰
+            2: [1, 1, 0], // 兑 ☱
+            3: [1, 0, 1], // 离 ☲
+            4: [1, 0, 0], // 震 ☳
+            5: [0, 1, 1], // 巽 ☴
+            6: [0, 1, 0], // 坎 ☵
+            7: [0, 0, 1], // 艮 ☶
+            8: [0, 0, 0], // 坤 ☷
+        };
+
+        // 三爻反查卦数
+        const LINES_TO_NUM = {
+            "1,1,1": 1, "1,1,0": 2, "1,0,1": 3, "1,0,0": 4,
+            "0,1,1": 5, "0,1,0": 6, "0,0,1": 7, "0,0,0": 8
+        };
+
+        // 八卦名称
+        const TRIGRAM_NAMES = {
+            1: "乾", 2: "兑", 3: "离", 4: "震",
+            5: "巽", 6: "坎", 7: "艮", 8: "坤"
+        };
+
+        // 爻位名称
+        const YAO_NAMES = ["初爻", "二爻", "三爻", "四爻", "五爻", "上爻"];
+
+        // 获取六爻数组 (从下到上)
+        const getHexagramLines = (upper, lower) => {
+            const lowerLines = TRIGRAM_LINES[lower];
+            const upperLines = TRIGRAM_LINES[upper];
+            return [...lowerLines, ...upperLines];
+        };
+
+        // 计算变卦
+        const getChangedGua = (upper, lower, moveYao) => {
+            const lines = getHexagramLines(upper, lower);
+            // 变爻 (moveYao 从1开始，数组索引从0开始)
+            const changedLines = [...lines];
+            changedLines[moveYao - 1] = changedLines[moveYao - 1] === 1 ? 0 : 1;
+
+            // 提取新的上下卦
+            const newLower = changedLines.slice(0, 3);
+            const newUpper = changedLines.slice(3, 6);
+
+            const newLowerNum = LINES_TO_NUM[newLower.join(",")];
+            const newUpperNum = LINES_TO_NUM[newUpper.join(",")];
+
+            return {
+                upper: newUpperNum,
+                lower: newLowerNum,
+                lines: changedLines,
+                name: GUA_DATA[newUpperNum][newLowerNum]
+            };
+        };
+
+        // 单爻组件
+        const Yao = ({ isYang, isMoving, showLabel, yaoIndex }) => (
+            <div className={`relative ${isMoving ? 'yao-moving' : ''}`}>
+                {showLabel && isMoving && (
+                    <div className="absolute -left-8 top-1/2 -translate-y-1/2 text-red-700 text-xs font-bold">
+                        ●
+                    </div>
+                )}
+                {isYang ? (
+                    <div className="yao-yang w-full"></div>
+                ) : (
+                    <div className="yao-yin w-full">
+                        <div className="yao-yin-half"></div>
+                        <div className="yao-yin-half"></div>
+                    </div>
+                )}
+                {showLabel && isMoving && (
+                    <div className="absolute -right-12 top-1/2 -translate-y-1/2 text-red-700 text-xs">
+                        {YAO_NAMES[yaoIndex]}
+                    </div>
+                )}
+            </div>
+        );
+
+        // 卦象组件
+        const Hexagram = ({ lines, moveYao = null, showMoveLabel = false, size = "normal" }) => {
+            const width = size === "small" ? "w-16" : "w-24";
+            const gap = size === "small" ? "gap-1.5" : "gap-2";
+
+            return (
+                <div className={`${width} flex flex-col-reverse ${gap} mx-auto`}>
+                    {lines.map((line, index) => (
+                        <Yao
+                            key={index}
+                            isYang={line === 1}
+                            isMoving={moveYao === index + 1}
+                            showLabel={showMoveLabel}
+                            yaoIndex={index}
+                        />
+                    ))}
+                </div>
+            );
+        };
+
+        // 卦象卡片组件
+        const GuaCard = ({ title, name, lines, moveYao, weight, isMain, showMoveLabel }) => (
+            <div className={`bg-white/80 backdrop-blur rounded-lg p-4 shadow-md border border-amber-200/50
+                ${isMain ? 'ring-2 ring-red-400/50' : ''}`}>
+                <div className="text-center mb-3">
+                    <span className={`text-sm ${isMain ? 'text-red-700' : 'text-amber-800'}`}>{title}</span>
+                    {weight && (
+                        <span className={`ml-2 text-xs px-2 py-0.5 rounded-full
+                            ${isMain ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
+                            {weight}
+                        </span>
+                    )}
+                </div>
+                <div className="relative py-4">
+                    <Hexagram lines={lines} moveYao={moveYao} showMoveLabel={showMoveLabel} />
+                </div>
+                <div className={`text-center text-xl font-bold mt-2
+                    ${isMain ? 'text-red-800' : 'text-amber-900'}`}>
+                    {name}
+                </div>
+            </div>
+        );
+
+        // 数字输入组件
+        const NumberInput = ({ label, value, onChange, min, max, hint }) => (
+            <div className="flex flex-col items-center">
+                <label className="text-amber-800 text-sm mb-1">{label}</label>
+                <input
+                    type="number"
+                    min={min}
+                    max={max}
+                    value={value}
+                    onChange={(e) => onChange(Math.min(max, Math.max(min, parseInt(e.target.value) || min)))}
+                    className="w-20 h-12 text-center text-2xl font-bold bg-white/90 border-2 border-amber-300
+                        rounded-lg focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200
+                        text-amber-900"
+                />
+                <span className="text-xs text-amber-600 mt-1">{hint}</span>
+            </div>
+        );
+
+        // 自动起卦组件
+        const AutoDivination = ({ onComplete, onCancel }) => {
+            const [gender, setGender] = useState(null); // 'male' | 'female'
+            const [stage, setStage] = useState(0); // 0: 选性别, 1: 上卦, 2: 下卦, 3: 动爻, 4: 完成
+            const [isPressing, setIsPressing] = useState(false);
+            const [displayNum, setDisplayNum] = useState(null);
+            const [results, setResults] = useState({ upper: null, lower: null, moveYao: null });
+            const [splitInfo, setSplitInfo] = useState(null); // 显示分签详情
+
+            const intervalRef = useRef(null);
+            const pressStartRef = useRef(null);
+
+            // 清理定时器
+            useEffect(() => {
+                return () => {
+                    if (intervalRef.current) clearInterval(intervalRef.current);
+                };
+            }, []);
+
+            // 分签逻辑
+            const performSplit = () => {
+                const total = 49;
+                // 生成随机分割点 (1-48)
+                const splitPoint = Math.floor(Math.random() * 48) + 1;
+                const leftPile = splitPoint;
+                const rightPile = total - splitPoint;
+
+                let selectedPile, selectedHand;
+
+                if (stage === 1) {
+                    // 上卦：男左女右
+                    if (gender === 'male') {
+                        selectedPile = leftPile;
+                        selectedHand = '左';
+                    } else {
+                        selectedPile = rightPile;
+                        selectedHand = '右';
+                    }
+                } else if (stage === 2) {
+                    // 下卦：男右女左 (相反)
+                    if (gender === 'male') {
+                        selectedPile = rightPile;
+                        selectedHand = '右';
+                    } else {
+                        selectedPile = leftPile;
+                        selectedHand = '左';
+                    }
+                } else if (stage === 3) {
+                    // 动爻：男左女右
+                    if (gender === 'male') {
+                        selectedPile = leftPile;
+                        selectedHand = '左';
+                    } else {
+                        selectedPile = rightPile;
+                        selectedHand = '右';
+                    }
+                }
+
+                // 计算卦数
+                const divisor = stage === 3 ? 6 : 8;
+                let result = selectedPile % divisor;
+                if (result === 0) result = divisor;
+
+                return {
+                    leftPile,
+                    rightPile,
+                    selectedHand,
+                    selectedPile,
+                    result
+                };
+            };
+
+            // 开始按压
+            const handlePressStart = (e) => {
+                e.preventDefault();
+                if (stage < 1 || stage > 3) return;
+
+                setIsPressing(true);
+                pressStartRef.current = Date.now();
+
+                // 数字快速跳动
+                intervalRef.current = setInterval(() => {
+                    const max = stage === 3 ? 6 : 8;
+                    setDisplayNum(Math.floor(Math.random() * max) + 1);
+                }, 50);
+            };
+
+            // 结束按压
+            const handlePressEnd = (e) => {
+                e.preventDefault();
+                if (!isPressing) return;
+
+                setIsPressing(false);
+                if (intervalRef.current) {
+                    clearInterval(intervalRef.current);
+                    intervalRef.current = null;
+                }
+
+                // 检查按压时长（至少500ms才有效）
+                const pressDuration = Date.now() - pressStartRef.current;
+                if (pressDuration < 500) {
+                    setDisplayNum(null);
+                    return;
+                }
+
+                // 执行分签
+                const split = performSplit();
+                setSplitInfo(split);
+                setDisplayNum(split.result);
+
+                // 更新结果
+                const newResults = { ...results };
+                if (stage === 1) {
+                    newResults.upper = split.result;
+                } else if (stage === 2) {
+                    newResults.lower = split.result;
+                } else if (stage === 3) {
+                    newResults.moveYao = split.result;
+                }
+                setResults(newResults);
+
+                // 延迟进入下一阶段
+                setTimeout(() => {
+                    if (stage < 3) {
+                        setStage(stage + 1);
+                        setDisplayNum(null);
+                        setSplitInfo(null);
+                    } else {
+                        setStage(4);
+                        // 完成，传递结果
+                        setTimeout(() => {
+                            onComplete(newResults.upper, newResults.lower, newResults.moveYao);
+                        }, 1000);
+                    }
+                }, 1500);
+            };
+
+            // 阶段信息
+            const stageInfo = {
+                1: {
+                    title: '第一签 · 求上卦',
+                    instruction: gender === 'male' ? '取左手之数' : '取右手之数',
+                    hint: '凝神静气，默念问题...',
+                    divisor: 8
+                },
+                2: {
+                    title: '第二签 · 求下卦',
+                    instruction: gender === 'male' ? '取右手之数' : '取左手之数',
+                    hint: '再次凝神，感应天机...',
+                    divisor: 8
+                },
+                3: {
+                    title: '第三签 · 求动爻',
+                    instruction: gender === 'male' ? '取左手之数' : '取右手之数',
+                    hint: '最后一次，定变化之位...',
+                    divisor: 6
+                }
+            };
+
+            // 性别选择界面
+            if (stage === 0) {
+                return (
+                    <div className="bg-white/70 backdrop-blur rounded-xl p-6 shadow-lg border border-amber-200/50">
+                        <div className="text-center mb-6">
+                            <h3 className="text-xl font-bold text-amber-900 mb-2">数字分蓍法</h3>
+                            <p className="text-amber-700 text-sm">模拟传统49签分蓍起卦</p>
+                        </div>
+
+                        <div className="text-center mb-6">
+                            <p className="text-amber-800 mb-4">请选择您的性别</p>
+                            <p className="text-xs text-amber-600">（性别决定取签规则：男左女右）</p>
+                        </div>
+
+                        <div className="flex justify-center gap-4 mb-6">
+                            <button
+                                onClick={() => { setGender('male'); setStage(1); }}
+                                className="px-8 py-4 bg-gradient-to-b from-blue-500 to-blue-600 text-white
+                                    font-bold rounded-xl shadow-lg hover:from-blue-600 hover:to-blue-700
+                                    active:scale-95 transition-all"
+                            >
+                                <div className="text-2xl mb-1">♂</div>
+                                <div>男</div>
+                            </button>
+                            <button
+                                onClick={() => { setGender('female'); setStage(1); }}
+                                className="px-8 py-4 bg-gradient-to-b from-pink-400 to-pink-500 text-white
+                                    font-bold rounded-xl shadow-lg hover:from-pink-500 hover:to-pink-600
+                                    active:scale-95 transition-all"
+                            >
+                                <div className="text-2xl mb-1">♀</div>
+                                <div>女</div>
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={onCancel}
+                            className="w-full py-2 text-amber-600 hover:text-amber-800 text-sm"
+                        >
+                            返回手动输入
+                        </button>
+                    </div>
+                );
+            }
+
+            // 分签界面 (阶段 1-3)
+            if (stage >= 1 && stage <= 3) {
+                const info = stageInfo[stage];
+
+                return (
+                    <div className="bg-white/70 backdrop-blur rounded-xl p-6 shadow-lg border border-amber-200/50">
+                        {/* 进度指示器 */}
+                        <div className="flex justify-center gap-3 mb-6">
+                            {[1, 2, 3].map(s => (
+                                <div
+                                    key={s}
+                                    className={`step-indicator w-10 h-10 rounded-full flex items-center justify-center
+                                        font-bold text-white shadow-md
+                                        ${s < stage ? 'completed' : ''}
+                                        ${s === stage ? 'active bg-gradient-to-b from-amber-500 to-amber-600' : ''}
+                                        ${s > stage ? 'bg-gray-300' : ''}`}
+                                >
+                                    {s < stage ? '✓' : s}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* 阶段标题 */}
+                        <div className="text-center mb-4">
+                            <h3 className="text-xl font-bold text-amber-900">{info.title}</h3>
+                            <p className="text-amber-600 text-sm mt-1">{info.instruction}</p>
+                        </div>
+
+                        {/* 已获得的结果 */}
+                        {(results.upper || results.lower) && (
+                            <div className="flex justify-center gap-4 mb-4">
+                                {results.upper && (
+                                    <div className="text-center reveal">
+                                        <div className="text-xs text-amber-600">上卦</div>
+                                        <div className="text-lg font-bold text-amber-900">
+                                            {results.upper} · {TRIGRAM_NAMES[results.upper]}
+                                        </div>
+                                    </div>
+                                )}
+                                {results.lower && (
+                                    <div className="text-center reveal">
+                                        <div className="text-xs text-amber-600">下卦</div>
+                                        <div className="text-lg font-bold text-amber-900">
+                                            {results.lower} · {TRIGRAM_NAMES[results.lower]}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* 分签可视化 */}
+                        <div className="bg-amber-50/80 rounded-xl p-6 mb-4">
+                            {/* 签数显示 */}
+                            <div className="flex justify-center items-center gap-8 mb-4">
+                                <div className="text-center">
+                                    <div className="text-xs text-amber-600 mb-1">左手</div>
+                                    <div className={`text-3xl font-bold ${
+                                        splitInfo ? (splitInfo.selectedHand === '左' ? 'text-red-600' : 'text-amber-400')
+                                        : (isPressing ? 'text-amber-900 flickering' : 'text-amber-300')
+                                    }`}>
+                                        {splitInfo ? splitInfo.leftPile : (isPressing ? Math.floor(Math.random() * 48) + 1 : '?')}
+                                    </div>
+                                </div>
+                                <div className="text-amber-400 text-2xl">|</div>
+                                <div className="text-center">
+                                    <div className="text-xs text-amber-600 mb-1">右手</div>
+                                    <div className={`text-3xl font-bold ${
+                                        splitInfo ? (splitInfo.selectedHand === '右' ? 'text-red-600' : 'text-amber-400')
+                                        : (isPressing ? 'text-amber-900 flickering' : 'text-amber-300')
+                                    }`}>
+                                        {splitInfo ? splitInfo.rightPile : (isPressing ? Math.floor(Math.random() * 48) + 1 : '?')}
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* 分签详情 */}
+                            {splitInfo && (
+                                <div className="text-center text-sm text-amber-700 reveal">
+                                    取{splitInfo.selectedHand}手 {splitInfo.selectedPile} ÷ {info.divisor} = 余
+                                    <span className="text-red-600 font-bold ml-1">{splitInfo.result}</span>
+                                    {stage !== 3 && (
+                                        <span className="ml-2">→ {TRIGRAM_NAMES[splitInfo.result]}</span>
+                                    )}
+                                    {stage === 3 && (
+                                        <span className="ml-2">→ {YAO_NAMES[splitInfo.result - 1]}</span>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* 分签按钮 */}
+                        <div className="text-center">
+                            <p className={`text-sm mb-3 ${isPressing ? 'text-red-600 font-bold' : 'text-amber-600'}`}>
+                                {isPressing ? '屏住呼吸... 松开手指一分为二' : info.hint}
+                            </p>
+
+                            <button
+                                onMouseDown={handlePressStart}
+                                onMouseUp={handlePressEnd}
+                                onMouseLeave={handlePressEnd}
+                                onTouchStart={handlePressStart}
+                                onTouchEnd={handlePressEnd}
+                                disabled={splitInfo !== null}
+                                className={`split-btn w-full py-6 rounded-xl text-white font-bold text-xl shadow-lg
+                                    ${splitInfo ? 'bg-green-500 cursor-default' :
+                                      isPressing ? 'pressing' :
+                                      'bg-gradient-to-b from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700'}
+                                    ${isPressing ? 'pressing' : ''}`}
+                            >
+                                {splitInfo ? (
+                                    <span className="reveal">
+                                        {stage === 3 ? `动爻：${YAO_NAMES[splitInfo.result - 1]}` :
+                                         `${stage === 1 ? '上' : '下'}卦：${TRIGRAM_NAMES[splitInfo.result]}`}
+                                    </span>
+                                ) : (
+                                    <>
+                                        <span className={isPressing ? 'breathing' : ''}>
+                                            {isPressing ? '凝神中...' : '长按分签'}
+                                        </span>
+                                        {!isPressing && (
+                                            <div className="text-xs mt-1 opacity-70">按住不放，气息调匀后松开</div>
+                                        )}
+                                    </>
+                                )}
+                            </button>
+                        </div>
+
+                        <button
+                            onClick={onCancel}
+                            className="w-full py-2 text-amber-600 hover:text-amber-800 text-sm mt-4"
+                        >
+                            取消
+                        </button>
+                    </div>
+                );
+            }
+
+            // 完成界面 (阶段 4)
+            if (stage === 4) {
+                return (
+                    <div className="bg-gradient-to-b from-green-50 to-green-100/80 backdrop-blur rounded-xl p-6 shadow-lg border border-green-300/50">
+                        <div className="text-center">
+                            <div className="text-4xl mb-4">✨</div>
+                            <h3 className="text-xl font-bold text-green-800 mb-4">起卦完成</h3>
+
+                            <div className="flex justify-center gap-6 mb-4">
+                                <div className="text-center">
+                                    <div className="text-xs text-green-600">上卦</div>
+                                    <div className="text-2xl font-bold text-green-900">
+                                        {TRIGRAM_NAMES[results.upper]}
+                                    </div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-xs text-green-600">下卦</div>
+                                    <div className="text-2xl font-bold text-green-900">
+                                        {TRIGRAM_NAMES[results.lower]}
+                                    </div>
+                                </div>
+                                <div className="text-center">
+                                    <div className="text-xs text-red-600">动爻</div>
+                                    <div className="text-2xl font-bold text-red-700">
+                                        {YAO_NAMES[results.moveYao - 1]}
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="text-green-700">
+                                {GUA_DATA[results.upper][results.lower]}
+                            </div>
+
+                            <p className="text-sm text-green-600 mt-4">正在解卦...</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            return null;
+        };
+
+        // 主应用
+        const App = () => {
+            const [mode, setMode] = useState('manual'); // 'manual' | 'auto'
+            const [upper, setUpper] = useState(3);
+            const [lower, setLower] = useState(5);
+            const [moveYao, setMoveYao] = useState(6);
+            const [result, setResult] = useState(null);
+
+            const handleDivine = useCallback(() => {
+                const originalLines = getHexagramLines(upper, lower);
+                const originalName = GUA_DATA[upper][lower];
+                const changed = getChangedGua(upper, lower, moveYao);
+
+                setResult({
+                    original: {
+                        upper,
+                        lower,
+                        lines: originalLines,
+                        name: originalName
+                    },
+                    moveYao,
+                    changed
+                });
+            }, [upper, lower, moveYao]);
+
+            const handleAutoComplete = useCallback((autoUpper, autoLower, autoMoveYao) => {
+                setUpper(autoUpper);
+                setLower(autoLower);
+                setMoveYao(autoMoveYao);
+                setMode('manual');
+
+                // 自动解卦
+                const originalLines = getHexagramLines(autoUpper, autoLower);
+                const originalName = GUA_DATA[autoUpper][autoLower];
+                const changed = getChangedGua(autoUpper, autoLower, autoMoveYao);
+
+                setResult({
+                    original: {
+                        upper: autoUpper,
+                        lower: autoLower,
+                        lines: originalLines,
+                        name: originalName
+                    },
+                    moveYao: autoMoveYao,
+                    changed
+                });
+            }, []);
+
+            return (
+                <div className="min-h-screen py-6 px-4">
+                    <div className="max-w-2xl mx-auto">
+                        {/* 标题 */}
+                        <div className="text-center mb-8">
+                            <h1 className="text-3xl font-bold text-amber-900 mb-2">高岛易断</h1>
+                            <p className="text-amber-700 text-sm">卦象呈现系统</p>
+                        </div>
+
+                        {/* 模式切换 */}
+                        <div className="flex justify-center gap-2 mb-6">
+                            <button
+                                onClick={() => { setMode('manual'); setResult(null); }}
+                                className={`px-4 py-2 rounded-lg font-medium transition-all
+                                    ${mode === 'manual'
+                                        ? 'bg-amber-600 text-white shadow-md'
+                                        : 'bg-white/50 text-amber-700 hover:bg-white/70'}`}
+                            >
+                                手动输入
+                            </button>
+                            <button
+                                onClick={() => { setMode('auto'); setResult(null); }}
+                                className={`px-4 py-2 rounded-lg font-medium transition-all
+                                    ${mode === 'auto'
+                                        ? 'bg-amber-600 text-white shadow-md'
+                                        : 'bg-white/50 text-amber-700 hover:bg-white/70'}`}
+                            >
+                                自动起卦
+                            </button>
+                        </div>
+
+                        {/* 手动输入模式 */}
+                        {mode === 'manual' && (
+                            <div className="bg-white/70 backdrop-blur rounded-xl p-6 shadow-lg border border-amber-200/50 mb-6">
+                                <div className="flex justify-center gap-6 mb-6 flex-wrap">
+                                    <NumberInput
+                                        label="上卦数"
+                                        value={upper}
+                                        onChange={setUpper}
+                                        min={1}
+                                        max={8}
+                                        hint={TRIGRAM_NAMES[upper]}
+                                    />
+                                    <NumberInput
+                                        label="下卦数"
+                                        value={lower}
+                                        onChange={setLower}
+                                        min={1}
+                                        max={8}
+                                        hint={TRIGRAM_NAMES[lower]}
+                                    />
+                                    <NumberInput
+                                        label="动爻"
+                                        value={moveYao}
+                                        onChange={setMoveYao}
+                                        min={1}
+                                        max={6}
+                                        hint={YAO_NAMES[moveYao - 1]}
+                                    />
+                                </div>
+
+                                {/* 先天八卦对照 */}
+                                <div className="text-center text-xs text-amber-600 mb-4 leading-relaxed">
+                                    1乾 2兑 3离 4震 5巽 6坎 7艮 8坤
+                                </div>
+
+                                <button
+                                    onClick={handleDivine}
+                                    className="w-full py-3 bg-gradient-to-r from-amber-600 to-amber-700
+                                        text-white font-bold rounded-lg shadow-md
+                                        hover:from-amber-700 hover:to-amber-800
+                                        active:scale-[0.98] transition-all duration-150"
+                                >
+                                    解 卦
+                                </button>
+                            </div>
+                        )}
+
+                        {/* 自动起卦模式 */}
+                        {mode === 'auto' && (
+                            <AutoDivination
+                                onComplete={handleAutoComplete}
+                                onCancel={() => setMode('manual')}
+                            />
+                        )}
+
+                        {/* 结果展示 */}
+                        {result && (
+                            <div className="space-y-6 animate-fade-in">
+                                {/* 权重说明 */}
+                                <div className="bg-red-50/80 backdrop-blur rounded-xl p-4 border border-red-200/50">
+                                    <div className="text-center">
+                                        <div className="text-red-800 font-bold text-lg mb-2">
+                                            动爻 · {YAO_NAMES[result.moveYao - 1]}
+                                        </div>
+                                        <div className="text-red-600 text-sm">
+                                            高岛流断卦权重：本卦 30% · <span className="font-bold">动爻 51%</span> · 变卦 19%
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 卦象展示 */}
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    {/* 本卦 */}
+                                    <GuaCard
+                                        title="本卦"
+                                        name={result.original.name}
+                                        lines={result.original.lines}
+                                        moveYao={result.moveYao}
+                                        weight="30%"
+                                        showMoveLabel={true}
+                                    />
+
+                                    {/* 动爻核心 - 中间突出 */}
+                                    <div className="bg-gradient-to-b from-red-50 to-red-100/80 backdrop-blur
+                                        rounded-lg p-4 shadow-md border-2 border-red-300/50
+                                        flex flex-col items-center justify-center">
+                                        <div className="text-red-800 text-sm mb-2">动爻核心</div>
+                                        <div className="text-6xl font-bold text-red-700 mb-2">
+                                            {result.moveYao}
+                                        </div>
+                                        <div className="text-red-600 font-bold">{YAO_NAMES[result.moveYao - 1]}</div>
+                                        <div className="seal-stamp mt-3">
+                                            {result.original.lines[result.moveYao - 1] === 1 ? '阳变阴' : '阴变阳'}
+                                        </div>
+                                        <div className="text-red-500 text-xs mt-2">权重 51%</div>
+                                    </div>
+
+                                    {/* 变卦 */}
+                                    <GuaCard
+                                        title="变卦"
+                                        name={result.changed.name}
+                                        lines={result.changed.lines}
+                                        weight="19%"
+                                    />
+                                </div>
+
+                                {/* 卦象详情 */}
+                                <div className="bg-white/70 backdrop-blur rounded-xl p-4 shadow-md border border-amber-200/50">
+                                    <div className="text-center text-amber-800">
+                                        <div className="text-sm mb-2">卦象变化</div>
+                                        <div className="text-lg">
+                                            <span className="font-bold">{result.original.name}</span>
+                                            <span className="mx-3 text-red-600">→</span>
+                                            <span className="text-red-700">{YAO_NAMES[result.moveYao - 1]}动</span>
+                                            <span className="mx-3 text-red-600">→</span>
+                                            <span className="font-bold">{result.changed.name}</span>
+                                        </div>
+                                        <div className="text-xs text-amber-600 mt-2">
+                                            上卦：{TRIGRAM_NAMES[result.original.upper]} → {TRIGRAM_NAMES[result.changed.upper]} |
+                                            下卦：{TRIGRAM_NAMES[result.original.lower]} → {TRIGRAM_NAMES[result.changed.lower]}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 页脚 */}
+                        <div className="text-center text-amber-600/60 text-xs mt-8">
+                            高岛吞象流 · 易经占卜辅助工具
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>

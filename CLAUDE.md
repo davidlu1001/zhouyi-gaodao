@@ -44,6 +44,12 @@ Chinese characters require higher contrast than Latin text. Use:
 - **Dark mode**: `text-ink-400` or lighter
 - **Light mode**: `text-ink-500` or darker
 
+### Entropy Algorithm (`mixEntropy`)
+
+`mixEntropy` is a module-level pure function (MurmurHash-inspired) located just before the `AutoDivination` component. It must stay outside the component — do not move it inside. It takes a 32-bit seed and returns a scrambled 32-bit unsigned integer.
+
+The split-point seed is `releaseTime ^ pressDuration ^ machineNoise`, all truncated to 32-bit by the XOR operation. `machineNoise` is `Math.random() * 1e6` and compensates for any entropy loss from XOR-ing two ms-resolution values.
+
 ### Important Files
 - `index.html` - Complete application (only file needed)
 

@@ -12,9 +12,13 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>☰</text></svg>">
     <title>高岛易断 - 卦象呈现系统</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Pinned to exact versions. Do NOT use floating tags (e.g. @18 or unversioned):
+         @babel/standalone "latest" rolled 7→8, whose JSX automatic runtime emits
+         `import` statements that the in-browser transformer cannot inject, blanking the page.
+         Babel must stay on 7.x (classic React.createElement runtime) for this no-build setup. -->
+    <script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone@7.29.7/babel.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
